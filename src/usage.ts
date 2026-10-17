@@ -162,12 +162,6 @@ export function formatUsd(usd: number): string {
 	return `$${usd.toFixed(3)}`;
 }
 
-export function formatCount(count: number): string {
-	if (count < 1_000) return String(count);
-	if (count < 1_000_000) return `${(count / 1_000).toFixed(1)}k`;
-	return `${(count / 1_000_000).toFixed(1)}M`;
-}
-
 export function formatDuration(ms: number): string {
 	if (ms < 1_000) return `${Math.round(ms)}ms`;
 	return `${(ms / 1_000).toFixed(2)}s`;
