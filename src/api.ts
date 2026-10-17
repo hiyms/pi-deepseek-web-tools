@@ -11,10 +11,11 @@ export class DeepSeekApiError extends Error {
 	readonly code: string | undefined;
 	readonly type: string | undefined;
 	readonly retryable: boolean;
+	readonly billable: boolean;
 
 	constructor(
 		message: string,
-		options: { status?: number; code?: string; type?: string; retryable?: boolean } = {},
+		options: { status?: number; code?: string; type?: string; retryable?: boolean; billable?: boolean } = {},
 	) {
 		super(message);
 		this.name = "DeepSeekApiError";
@@ -22,6 +23,7 @@ export class DeepSeekApiError extends Error {
 		this.code = options.code;
 		this.type = options.type;
 		this.retryable = options.retryable ?? isRetryableStatus(options.status);
+		this.billable = options.billable ?? false;
 	}
 }
 
@@ -191,17 +193,32 @@ export class DeepSeekClient {
 	) {}
 
 	search(body: Record<string, unknown>, options: ApiRequestOptions = {}): Promise<{ response: SearchResponse; durationMs: number }> {
-		return this.request("search", body, options).then((result) => ({
-			response: validateSearchResponse(result.data),
-			durationMs: result.durationMs,
-		}));
+		return this.request("search", body, options).then((result) => {
+			try {
+				return { response: validateSearchResponse(result.data), durationMs: result.durationMs };
+			} catch (error) {
+				const billable = isRecord(result.data) && Array.isArray(result.data.results) && result.data.results.length > 0;
+				throw new DeepSeekApiError(
+					`DeepSeek search returned an invalid response: ${error instanceof Error ? error.message : String(error)}`,
+					{ status: 200, retryable: false, billable },
+				);
+			}
+		});
 	}
 
 	fetch(body: Record<string, unknown>, options: ApiRequestOptions = {}): Promise<{ response: FetchResponse; durationMs: number }> {
-		return this.request("fetch", body, options).then((result) => ({
-			response: validateFetchResponse(result.data),
-			durationMs: result.durationMs,
-		}));
+		return this.request("fetch", body, options).then((result) => {
+			try {
+				return { response: validateFetchResponse(result.data), durationMs: result.durationMs };
+			} catch (error) {
+				const billable =
+					isRecord(result.data) && typeof result.data.content === "string" && result.data.content.length > 0;
+				throw new DeepSeekApiError(
+					`DeepSeek fetch returned an invalid response: ${error instanceof Error ? error.message : String(error)}`,
+					{ status: 200, retryable: false, billable },
+				);
+			}
+		});
 	}
 
 	private async request(
@@ -210,12 +227,12 @@ export class DeepSeekClient {
 		options: ApiRequestOptions,
 	): Promise<{ data: unknown; durationMs: number }> {
 		const startedAt = Date.now();
-		const timeoutSignal = AbortSignal.timeout(this.config.timeoutMs);
-		const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
 
 		for (let attempt = 0; ; attempt++) {
 			const limiter = limiterFor(this.config.baseUrl, endpoint, this.config.qps);
-			await limiter.acquire(signal);
+			await limiter.acquire(options.signal);
+			const attemptTimeout = AbortSignal.timeout(this.config.timeoutMs);
+			const signal = options.signal ? AbortSignal.any([options.signal, attemptTimeout]) : attemptTimeout;
 
 			let response: Response;
 			try {
@@ -230,17 +247,21 @@ export class DeepSeekClient {
 				});
 			} catch (error) {
 				if (options.signal?.aborted) throw error;
-				if (timeoutSignal.aborted) {
-					throw new DeepSeekApiError(
-						`DeepSeek ${endpoint} request timed out after ${this.config.timeoutMs}ms`,
-						{ retryable: true },
-					);
+				if (attemptTimeout.aborted) {
+					const message = `timed out after ${this.config.timeoutMs}ms`;
+					if (attempt < this.config.maxRetries) {
+						const waitMs = backoffMs(attempt);
+						options.onRetry?.({ attempt: attempt + 1, waitMs, message });
+						await delay(waitMs, options.signal);
+						continue;
+					}
+					throw new DeepSeekApiError(`DeepSeek ${endpoint} request ${message}`, { retryable: true });
 				}
 				const message = error instanceof Error ? error.message : String(error);
 				if (attempt < this.config.maxRetries) {
 					const waitMs = backoffMs(attempt);
 					options.onRetry?.({ attempt: attempt + 1, waitMs, message });
-					await delay(waitMs, signal);
+					await delay(waitMs, options.signal);
 					continue;
 				}
 				throw new DeepSeekApiError(`DeepSeek ${endpoint} network error: ${message}`, { retryable: true });
@@ -274,7 +295,7 @@ export class DeepSeekClient {
 						status: response.status,
 						message: parsed.message,
 					});
-					await delay(waitMs, signal);
+					await delay(waitMs, options.signal);
 					continue;
 				}
 				throw error;

@@ -24,6 +24,18 @@ test("session cache honors TTL, LRU order, and the entry limit", () => {
 	assert.equal(cache.get("a", 1_500), undefined);
 });
 
+test("session cache evicts entries by byte budget", () => {
+	const cache = new SessionCache<{ id: string; bytes: number }>(1_000, 10, 10, (value) => value.bytes);
+	cache.set("a", { id: "a", bytes: 6 }, 0);
+	cache.set("b", { id: "b", bytes: 6 }, 0);
+	assert.equal(cache.get("a", 1), undefined);
+	assert.equal(cache.get("b", 1)?.id, "b");
+	assert.equal(cache.bytes, 6);
+	cache.set("huge", { id: "huge", bytes: 11 }, 1);
+	assert.equal(cache.get("huge", 1), undefined);
+	assert.equal(cache.bytes, 6);
+});
+
 test("session cache with zero TTL stores nothing", () => {
 	const cache = new SessionCache<string>(0, 10);
 	cache.set("a", "A", 0);

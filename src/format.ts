@@ -68,18 +68,21 @@ export function formatSearchForModel(
 	}
 
 	const intro = header.join("\n");
+	const budget = Math.max(1, maxBytes - 256);
 	let output = intro;
 	for (let index = 0; index < results.length; index++) {
 		const result = results[index]!;
 		const block = `\n${formatSearchResult(result, index, details.needContent)}\n`;
-		if (Buffer.byteLength(output + block, "utf8") > maxBytes) {
+		if (Buffer.byteLength(output + block, "utf8") > budget) {
 			const remaining = results.length - index;
 			output += `\n[${remaining} more result${remaining === 1 ? "" : "s"} omitted to stay within the ${formatBytes(maxBytes)} model-facing limit. Use a smaller count or enable need_content for a specific query.]\n`;
 			break;
 		}
 		output += block;
 	}
-	return output.trimEnd();
+	const final = output.trimEnd();
+	if (Buffer.byteLength(final, "utf8") <= maxBytes) return final;
+	return truncateUtf8(final, maxBytes).text;
 }
 
 export function formatFetchForModel(
@@ -99,7 +102,7 @@ export function formatFetchForModel(
 	if (details.note) lines.push(`Note: ${details.note}`);
 	lines.push("");
 
-	const limit = maxBytes;
+	const limit = Math.max(1, maxBytes - Buffer.byteLength(lines.join("\n"), "utf8") - 512);
 	const truncated = truncateUtf8(response.content, limit);
 	lines.push(truncated.text);
 	if (truncated.truncated) {
@@ -111,5 +114,7 @@ export function formatFetchForModel(
 			`[Content truncated: showing first ${formatBytes(Buffer.byteLength(truncated.text, "utf8"))} of ${formatBytes(truncated.bytes)}. ${cacheNote}]`,
 		);
 	}
-	return lines.join("\n");
+	const final = lines.join("\n");
+	if (Buffer.byteLength(final, "utf8") <= maxBytes) return final;
+	return truncateUtf8(final, maxBytes).text;
 }

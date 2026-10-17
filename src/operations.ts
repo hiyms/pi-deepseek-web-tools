@@ -7,6 +7,7 @@ import { formatFetchForModel, formatSearchForModel } from "./format.ts";
 import {
 	addBillingToLedger,
 	addCachedToLedger,
+	addFailedToLedger,
 	createBilling,
 	createUsage,
 	fetchBilling,
@@ -16,6 +17,7 @@ import type { RuntimeState } from "./runtime.ts";
 import {
 	type CachedFetch,
 	type CachedSearch,
+	type BillingDetails,
 	type FetchToolDetails,
 	type SearchRequest,
 	type SearchResponse,
@@ -187,6 +189,8 @@ export async function runSearch(
 	const ticker = context.emit
 		? setInterval(() => context.emit?.({ ...details, durationMs: Date.now() - startedAt }), 250)
 		: undefined;
+	let billing: BillingDetails | undefined;
+	let ledgerRecorded = false;
 
 	try {
 		const request = validateSearchInput(input, config);
@@ -213,6 +217,7 @@ export async function runSearch(
 				note: undefined,
 			};
 			addCachedToLedger(context.runtime.ledger, "search");
+			ledgerRecorded = true;
 			context.onLedgerChange?.();
 			const content = formatSearchForModel(details, cached.response.results, config.search.maxModelBytes);
 			return { details, content, isError: false };
@@ -227,7 +232,7 @@ export async function runSearch(
 			},
 		});
 		const requestedAt = new Date().toISOString();
-		const billing = searchBilling(response.results.length, config.pricing.searchCny, config.cnyPerUsd);
+		billing = searchBilling(response.results.length, config.pricing.searchCny, config.cnyPerUsd);
 		details = {
 			...details,
 			stage: "done",
@@ -239,15 +244,25 @@ export async function runSearch(
 		};
 		context.runtime.caches.search.set(cacheKey, { response, requestedAt } satisfies CachedSearch);
 		addBillingToLedger(context.runtime.ledger, "search", billing);
+		ledgerRecorded = true;
 		context.onLedgerChange?.();
 		const content = formatSearchForModel(details, response.results, config.search.maxModelBytes);
 		return { details, content, ...(billing.billed ? { usage: createUsage(billing) } : {}), isError: false };
 	} catch (error) {
-		details = searchErrorDetails(input, config, startedAt, error);
+		if (!billing && error instanceof DeepSeekApiError && error.billable) {
+			billing = searchBilling(1, config.pricing.searchCny, config.cnyPerUsd);
+		}
+		details = { ...searchErrorDetails(input, config, startedAt, error), ...(billing ? { billing } : {}) };
+		if (!ledgerRecorded) {
+			if (billing) addBillingToLedger(context.runtime.ledger, "search", billing);
+			else addFailedToLedger(context.runtime.ledger, "search");
+			context.onLedgerChange?.();
+		}
 		context.emit?.(details);
 		return {
 			details,
 			content: `DeepSeek search failed: ${details.error?.message ?? "unknown error"}`,
+			...(billing?.billed ? { usage: createUsage(billing) } : {}),
 			isError: true,
 		};
 	} finally {
@@ -276,6 +291,8 @@ export async function runFetch(
 	const ticker = context.emit
 		? setInterval(() => context.emit?.({ ...details, durationMs: Date.now() - startedAt }), 250)
 		: undefined;
+	let billing: BillingDetails | undefined;
+	let ledgerRecorded = false;
 
 	try {
 		const url = validateFetchInput(input);
@@ -303,6 +320,7 @@ export async function runFetch(
 				note: undefined,
 			};
 			addCachedToLedger(context.runtime.ledger, "fetch");
+			ledgerRecorded = true;
 			context.onLedgerChange?.();
 			const content = formatFetchForModel(details, cached.response, config.fetch.maxModelBytes);
 			return { details, content, isError: false };
@@ -323,7 +341,7 @@ export async function runFetch(
 		const contentChars = response.content.length;
 		const contentBytes = Buffer.byteLength(response.content, "utf8");
 		const contentLines = response.content.split("\n").length;
-		const billing = fetchBilling(contentChars, config.pricing.fetchCny, config.cnyPerUsd);
+		billing = fetchBilling(contentChars, config.pricing.fetchCny, config.cnyPerUsd);
 		const truncated = truncateUtf8(response.content, config.fetch.maxModelBytes);
 
 		let cachePath: string | undefined;
@@ -368,15 +386,25 @@ export async function runFetch(
 			} satisfies CachedFetch);
 		}
 		addBillingToLedger(context.runtime.ledger, "fetch", billing);
+		ledgerRecorded = true;
 		context.onLedgerChange?.();
 		const content = formatFetchForModel(details, response, config.fetch.maxModelBytes);
 		return { details, content, ...(billing.billed ? { usage: createUsage(billing) } : {}), isError: false };
 	} catch (error) {
-		details = fetchErrorDetails(input, startedAt, error);
+		if (!billing && error instanceof DeepSeekApiError && error.billable) {
+			billing = fetchBilling(1, config.pricing.fetchCny, config.cnyPerUsd);
+		}
+		details = { ...fetchErrorDetails(input, startedAt, error), ...(billing ? { billing } : {}) };
+		if (!ledgerRecorded) {
+			if (billing) addBillingToLedger(context.runtime.ledger, "fetch", billing);
+			else addFailedToLedger(context.runtime.ledger, "fetch");
+			context.onLedgerChange?.();
+		}
 		context.emit?.(details);
 		return {
 			details,
 			content: `DeepSeek fetch failed: ${details.error?.message ?? "unknown error"}`,
+			...(billing?.billed ? { usage: createUsage(billing) } : {}),
 			isError: true,
 		};
 	} finally {

@@ -143,9 +143,15 @@ function resultLines(theme: Theme, result: SearchResultSummary, expanded: boolea
 	return lines;
 }
 
-function pendingCard(details: ToolDetails, theme: Theme, subject: string, description: string): Component {
+function pendingCard(
+	details: ToolDetails,
+	theme: Theme,
+	subject: string,
+	description: string,
+	paddingX = 0,
+): Component {
 	const lines: PrefixLine[] = [
-		{ prefix: "", continuationPrefix: "  ", text: theme.fg("accent", subject) },
+		{ prefix: "", continuationPrefix: "  ", text: theme.fg("accent", singleLine(subject)) },
 		{ prefix: "", continuationPrefix: "  ", text: theme.fg("dim", description) },
 	];
 	if (details.note) {
@@ -159,26 +165,34 @@ function pendingCard(details: ToolDetails, theme: Theme, subject: string, descri
 			tone: "pending",
 		},
 		theme,
+		paddingX,
 	);
 }
 
-function errorCard(details: ToolDetails, theme: Theme, subject: string): Component {
+function errorCard(details: ToolDetails, theme: Theme, subject: string, paddingX = 0): Component {
 	const error = details.error;
 	const lines: PrefixLine[] = [
-		{ prefix: "", continuationPrefix: "  ", text: theme.fg("accent", subject) },
+		{ prefix: "", continuationPrefix: "  ", text: theme.fg("accent", singleLine(subject)) },
 		{ prefix: "", text: "" },
 		{ prefix: "", continuationPrefix: "  ", text: theme.fg("error", clean(error?.message) || "Unknown error") },
 	];
 	const metadata: string[] = [];
 	if (error?.status !== undefined) metadata.push(`HTTP ${error.status}`);
-	if (error?.code) metadata.push(`code ${error.code}`);
-	if (error?.type) metadata.push(error.type);
+	if (error?.code) metadata.push(`code ${singleLine(error.code)}`);
+	if (error?.type) metadata.push(singleLine(error.type));
 	if (error?.retryable) metadata.push("retryable");
 	if (metadata.length > 0) {
 		lines.push({ prefix: "", continuationPrefix: "  ", text: theme.fg("dim", metadata.join(" · ")) });
 	}
 	if (details.note) {
 		lines.push({ prefix: "", continuationPrefix: "  ", text: theme.fg("warning", singleLine(details.note)) });
+	}
+	if (details.billing?.billed) {
+		lines.push({
+			prefix: "",
+			continuationPrefix: "  ",
+			text: theme.fg("warning", `Billed ${formatCny(details.billing.cny)} for this request.`),
+		});
 	}
 	return new Card(
 		{
@@ -188,6 +202,7 @@ function errorCard(details: ToolDetails, theme: Theme, subject: string): Compone
 			tone: "error",
 		},
 		theme,
+		paddingX,
 	);
 }
 
@@ -205,7 +220,7 @@ function fetchDetails(value: unknown): FetchToolDetails | undefined {
 	return details;
 }
 
-export function renderSearchCall(args: SearchCallArgs, theme: Theme): Component {
+export function renderSearchCall(args: SearchCallArgs, theme: Theme, paddingX = 0): Component {
 	const query = singleLine(args.query) || "(query streaming…)";
 	const badges = [`count ${args.count ?? "default"}`];
 	if (args.need_content) badges.push("need_content");
@@ -231,6 +246,7 @@ export function renderSearchCall(args: SearchCallArgs, theme: Theme): Component 
 			tone: "pending",
 		},
 		theme,
+		paddingX,
 	);
 }
 
@@ -239,13 +255,14 @@ export function renderSearchResult(
 	content: string,
 	options: CardRenderOptions,
 	theme: Theme,
+	paddingX = 0,
 ): Component {
 	const details = searchDetails(detailsValue);
 	if (!details) return new Text(clean(content) || "(no output)", 0, 0);
 	if (options.isPartial || (details.stage !== "done" && details.stage !== "cache-hit" && details.stage !== "error")) {
-		return pendingCard(details, theme, details.query, "Waiting for DeepSeek Search…");
+		return pendingCard(details, theme, details.query, "Waiting for DeepSeek Search…", paddingX);
 	}
-	if (details.stage === "error" || details.error) return errorCard(details, theme, details.query);
+	if (details.stage === "error" || details.error) return errorCard(details, theme, details.query, paddingX);
 
 	const shownResults = options.commandView ? details.results.slice(0, 8) : details.results;
 	const lines: PrefixLine[] = [
@@ -314,10 +331,11 @@ export function renderSearchResult(
 			tone: toneFor(details, false),
 		},
 		theme,
+		paddingX,
 	);
 }
 
-export function renderFetchCall(args: FetchCallArgs, theme: Theme): Component {
+export function renderFetchCall(args: FetchCallArgs, theme: Theme, paddingX = 0): Component {
 	const url = singleLine(args.url) || "(url streaming…)";
 	const lines: PrefixLine[] = [
 		{ prefix: "", continuationPrefix: "  ", text: theme.fg("accent", url) },
@@ -331,6 +349,7 @@ export function renderFetchCall(args: FetchCallArgs, theme: Theme): Component {
 			tone: "pending",
 		},
 		theme,
+		paddingX,
 	);
 }
 
@@ -339,13 +358,14 @@ export function renderFetchResult(
 	content: string,
 	options: CardRenderOptions,
 	theme: Theme,
+	paddingX = 0,
 ): Component {
 	const details = fetchDetails(detailsValue);
 	if (!details) return new Text(clean(content) || "(no output)", 0, 0);
 	if (options.isPartial || (details.stage !== "done" && details.stage !== "cache-hit" && details.stage !== "error")) {
-		return pendingCard(details, theme, details.url, "Fetching and converting the page…");
+		return pendingCard(details, theme, details.url, "Fetching and converting the page…", paddingX);
 	}
-	if (details.stage === "error" || details.error) return errorCard(details, theme, details.url);
+	if (details.stage === "error" || details.error) return errorCard(details, theme, details.url, paddingX);
 
 	const header: PrefixLine[] = [
 		{ prefix: "", continuationPrefix: "  ", text: theme.bold(theme.fg("text", singleLine(details.title) || "(untitled page)")) },
@@ -396,6 +416,7 @@ export function renderFetchResult(
 			tone: toneFor(details, false),
 		},
 		theme,
+		paddingX,
 	);
 }
 
@@ -403,8 +424,9 @@ export function renderToolCard(
 	details: ToolDetails,
 	options: CardRenderOptions,
 	theme: Theme,
+	paddingX = 0,
 ): Component {
 	return details.kind === "search"
-		? renderSearchResult(details, "", options, theme)
-		: renderFetchResult(details, "", options, theme);
+		? renderSearchResult(details, "", options, theme, paddingX)
+		: renderFetchResult(details, "", options, theme, paddingX);
 }

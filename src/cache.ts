@@ -10,10 +10,13 @@ interface CacheEntry<T> {
 
 export class SessionCache<T> {
 	private readonly entries = new Map<string, CacheEntry<T>>();
+	private totalBytes = 0;
 
 	constructor(
 		private readonly ttlMs: number,
 		private readonly maxEntries: number,
+		private readonly maxBytes: number = Number.POSITIVE_INFINITY,
+		private readonly measure: (value: T) => number = () => 0,
 	) {}
 
 	get(key: string, now: number = Date.now()): T | undefined {
@@ -21,6 +24,7 @@ export class SessionCache<T> {
 		if (!entry) return undefined;
 		if (entry.expiresAt <= now) {
 			this.entries.delete(key);
+			this.totalBytes -= this.measure(entry.value);
 			return undefined;
 		}
 		this.entries.delete(key);
@@ -30,27 +34,44 @@ export class SessionCache<T> {
 
 	set(key: string, value: T, now: number = Date.now()): void {
 		if (this.ttlMs <= 0) return;
+		const bytes = Math.max(0, this.measure(value));
+		if (bytes > this.maxBytes) return;
 		this.prune(now);
+		const previous = this.entries.get(key);
+		if (previous) {
+			this.totalBytes -= this.measure(previous.value);
+		}
 		this.entries.delete(key);
 		this.entries.set(key, { value, expiresAt: now + this.ttlMs });
-		while (this.entries.size > this.maxEntries) {
+		this.totalBytes += bytes;
+		while (this.entries.size > this.maxEntries || this.totalBytes > this.maxBytes) {
 			const oldest = this.entries.keys().next();
 			if (oldest.done) break;
+			const entry = this.entries.get(oldest.value);
 			this.entries.delete(oldest.value);
+			if (entry) this.totalBytes -= this.measure(entry.value);
 		}
 	}
 
 	clear(): void {
 		this.entries.clear();
+		this.totalBytes = 0;
 	}
 
 	get size(): number {
 		return this.entries.size;
 	}
 
+	get bytes(): number {
+		return this.totalBytes;
+	}
+
 	private prune(now: number): void {
 		for (const [key, entry] of this.entries) {
-			if (entry.expiresAt <= now) this.entries.delete(key);
+			if (entry.expiresAt <= now) {
+				this.entries.delete(key);
+				this.totalBytes -= this.measure(entry.value);
+			}
 		}
 	}
 }

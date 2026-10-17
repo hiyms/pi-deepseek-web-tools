@@ -102,9 +102,12 @@ test("empty search results are not billed", () => {
 });
 
 test("search output is capped by the byte limit", () => {
-	const output = formatSearchForModel(searchDetails(), results, 300);
-	assert.match(output, /more result/);
-	assert.ok(Buffer.byteLength(output, "utf8") <= 500);
+	const withHint = formatSearchForModel(searchDetails(), results, 700);
+	assert.match(withHint, /more result/);
+	assert.ok(Buffer.byteLength(withHint, "utf8") <= 700);
+
+	const hardCap = formatSearchForModel(searchDetails(), results, 300);
+	assert.ok(Buffer.byteLength(hardCap, "utf8") <= 300);
 });
 
 function fetchDetails(overrides: Partial<FetchToolDetails> = {}): FetchToolDetails {
@@ -151,9 +154,10 @@ test("fetch output points at the cached file when truncated", () => {
 			bytesReturned: 120,
 		}),
 		response,
-		120,
+		1024,
 	);
 	assert.match(output, /Content truncated/);
 	assert.match(output, /Full content cached at \/home\/user\/\.pi\/agent\/cache\/deepseek-web-tools\/fetch\/page\.md/);
 	assert.match(output, /Use the read tool with offset\/limit/);
+	assert.ok(Buffer.byteLength(output, "utf8") <= 1024);
 });

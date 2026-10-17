@@ -5,7 +5,7 @@ import type {
 	ExtensionContext,
 	ExtensionToolContext,
 } from "@earendil-works/pi-coding-agent";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { BorderedLoader, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { runFetch, runSearch, type OperationContext, type OperationResult } from "./operations.ts";
 import { renderFetchCall, renderFetchResult, renderSearchCall, renderSearchResult, renderToolCard } from "./render/tool-cards.ts";
@@ -20,7 +20,7 @@ const searchParameters = Type.Object(
 	{
 		query: Type.String({
 			minLength: 1,
-			maxLength: 128,
+			maxLength: 512,
 			description:
 				"Search query, 1-128 Unicode characters. Supports site:, -site:, lang:, after:, before:, quoted phrases, and exclusions.",
 		}),
@@ -33,7 +33,7 @@ const searchParameters = Type.Object(
 		),
 		ori_question: Type.Optional(
 			Type.String({
-				maxLength: 128,
+				maxLength: 512,
 				description: "The user's original question when it differs from the search query; helps intent ranking.",
 			}),
 		),
@@ -140,7 +140,23 @@ async function runCommandSearch(
 	ctx: ExtensionCommandContext,
 	query: string,
 ): Promise<void> {
-	const result = await runSearch({ query }, operationContext<SearchToolDetails>(runtime, ctx));
+	let result: OperationResult<SearchToolDetails> | null;
+	if (ctx.mode === "tui") {
+		result = await ctx.ui.custom<OperationResult<SearchToolDetails> | null>((tui, theme, _keybindings, done) => {
+			const loader = new BorderedLoader(tui, theme, `DeepSeek Search: ${query}`);
+			loader.onAbort = () => done(null);
+			runSearch({ query }, operationContext<SearchToolDetails>(runtime, ctx, loader.signal))
+				.then(done)
+				.catch(() => done(null));
+			return loader;
+		});
+	} else {
+		result = await runSearch({ query }, operationContext<SearchToolDetails>(runtime, ctx));
+	}
+	if (!result) {
+		ctx.ui.notify("Search cancelled", "info");
+		return;
+	}
 	appendCommandUsage(pi, result.details);
 	pi.sendMessage<CommandCardMessageDetails>(
 		{
@@ -162,7 +178,23 @@ async function runCommandFetch(
 	ctx: ExtensionCommandContext,
 	url: string,
 ): Promise<void> {
-	const result = await runFetch({ url }, operationContext<FetchToolDetails>(runtime, ctx));
+	let result: OperationResult<FetchToolDetails> | null;
+	if (ctx.mode === "tui") {
+		result = await ctx.ui.custom<OperationResult<FetchToolDetails> | null>((tui, theme, _keybindings, done) => {
+			const loader = new BorderedLoader(tui, theme, `DeepSeek Fetch: ${url}`);
+			loader.onAbort = () => done(null);
+			runFetch({ url }, operationContext<FetchToolDetails>(runtime, ctx, loader.signal))
+				.then(done)
+				.catch(() => done(null));
+			return loader;
+		});
+	} else {
+		result = await runFetch({ url }, operationContext<FetchToolDetails>(runtime, ctx));
+	}
+	if (!result) {
+		ctx.ui.notify("Fetch cancelled", "info");
+		return;
+	}
 	appendCommandUsage(pi, result.details);
 	pi.sendMessage<CommandCardMessageDetails>(
 		{
@@ -187,7 +219,7 @@ export default function deepseekWebTools(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_tree", async (_event, ctx) => {
-		resetRuntime(runtime, ctx.sessionManager.getEntries());
+		resetRuntime(runtime, ctx.sessionManager.getEntries(), false);
 		refreshStatus(runtime, ctx);
 	});
 
@@ -210,15 +242,16 @@ export default function deepseekWebTools(pi: ExtensionAPI) {
 		annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 		executionMode: "parallel",
 		renderShell: "self",
-		renderCall(args, theme) {
-			return renderSearchCall(args, theme);
+		renderCall(args, theme, context) {
+			return renderSearchCall(args, theme, context.outputPad);
 		},
-		renderResult(result, options, theme) {
+		renderResult(result, options, theme, context) {
 			return renderSearchResult(
 				result.details,
 				textOf(result.content),
 				{ expanded: options.expanded, isPartial: options.isPartial },
 				theme,
+				context.outputPad,
 			);
 		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx: ExtensionToolContext) {
@@ -246,15 +279,16 @@ export default function deepseekWebTools(pi: ExtensionAPI) {
 		annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 		executionMode: "parallel",
 		renderShell: "self",
-		renderCall(args, theme) {
-			return renderFetchCall(args, theme);
+		renderCall(args, theme, context) {
+			return renderFetchCall(args, theme, context.outputPad);
 		},
-		renderResult(result, options, theme) {
+		renderResult(result, options, theme, context) {
 			return renderFetchResult(
 				result.details,
 				textOf(result.content),
 				{ expanded: options.expanded, isPartial: options.isPartial },
 				theme,
+				context.outputPad,
 			);
 		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx: ExtensionToolContext) {
@@ -300,9 +334,14 @@ export default function deepseekWebTools(pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerMessageRenderer<CommandCardMessageDetails>(CUSTOM_MESSAGE_TYPE, (message, _options, theme) => {
+	pi.registerMessageRenderer<CommandCardMessageDetails>(CUSTOM_MESSAGE_TYPE, (message, options, theme) => {
 		const details = message.details?.card;
 		if (!details) return undefined;
-		return renderToolCard(details, { expanded: true, commandView: true }, theme);
+		return renderToolCard(
+			details,
+			{ expanded: options.expanded, commandView: true },
+			theme,
+			options.outputPad,
+		);
 	});
 }

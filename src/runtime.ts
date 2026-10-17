@@ -18,8 +18,18 @@ export interface RuntimeState {
 
 export function createCaches(config: DeepSeekWebToolsConfig): RuntimeCaches {
 	return {
-		search: new SessionCache<CachedSearch>(config.cache.enabled ? config.cache.ttlMs : 0, config.cache.maxEntries),
-		fetch: new SessionCache<CachedFetch>(config.cache.enabled ? config.cache.ttlMs : 0, config.cache.maxEntries),
+		search: new SessionCache<CachedSearch>(
+			config.cache.enabled ? config.cache.ttlMs : 0,
+			config.cache.maxEntries,
+			config.cache.maxBytes,
+			(entry) => Buffer.byteLength(JSON.stringify(entry.response), "utf8"),
+		),
+		fetch: new SessionCache<CachedFetch>(
+			config.cache.enabled ? config.cache.ttlMs : 0,
+			config.cache.maxEntries,
+			config.cache.maxBytes,
+			(entry) => entry.contentBytes + 1_024,
+		),
 	};
 }
 
@@ -33,8 +43,8 @@ export function createRuntime(agentDir: string): RuntimeState {
 	};
 }
 
-export function resetRuntime(state: RuntimeState, entries: readonly SessionEntry[]): void {
+export function resetRuntime(state: RuntimeState, entries: readonly SessionEntry[], resetCaches = true): void {
 	state.config = loadConfig(state.agentDir);
-	state.caches = createCaches(state.config);
+	if (resetCaches) state.caches = createCaches(state.config);
 	state.ledger = ledgerFromEntries(entries);
 }

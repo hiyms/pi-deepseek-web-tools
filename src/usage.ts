@@ -102,6 +102,10 @@ export function addCachedToLedger(ledger: UsageLedger, kind: "search" | "fetch")
 	ledger[kind].cached++;
 }
 
+export function addFailedToLedger(ledger: UsageLedger, kind: "search" | "fetch"): void {
+	ledger[kind].calls++;
+}
+
 export function ledgerFromEntries(entries: readonly EntryLike[]): UsageLedger {
 	const ledger = createEmptyLedger();
 	for (const entry of entries) {

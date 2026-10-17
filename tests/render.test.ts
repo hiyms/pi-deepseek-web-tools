@@ -250,6 +250,41 @@ test("fetch call and result cards render content and cache details", () => {
 	assertFits(expanded);
 });
 
+test("pending and error cards strip terminal escapes from their subjects", () => {
+	const pending = renderSearchResult(
+		searchDetails({ stage: "requesting", query: "\u001b[2Jpending query", durationMs: 1 }),
+		"",
+		{ expanded: false, isPartial: true },
+		theme,
+	);
+	const pendingText = pending.render(80).join("\n");
+	assert.doesNotMatch(pendingText, /\u001b\[2J/);
+	assert.match(pendingText, /pending query/);
+
+	const failed = renderSearchResult(
+		searchDetails({
+			stage: "error",
+			query: "\u001b]0;pwned\u0007query",
+			error: { message: "bad", code: "\u001b[31mred", type: "\u001b[2Jtype" },
+		}),
+		"",
+		{ expanded: false },
+		theme,
+	);
+	const failedText = failed.render(80).join("\n");
+	assert.doesNotMatch(failedText, /pwned/);
+	assert.doesNotMatch(failedText, /\u001b\[2J/);
+	assert.match(failedText, /query/);
+});
+
+test("cards honor horizontal padding", () => {
+	const card = renderSearchResult(searchDetails(), "", { expanded: false }, theme, 1);
+	for (const line of card.render(80)) {
+		assert.equal(visibleWidth(line), 80);
+		assert.ok(stripTerminalSequences(line).startsWith(" "), "expected a one-column left margin");
+	}
+});
+
 test("cards also fit very narrow terminal widths", () => {
 	const card = renderSearchResult(searchDetails(), "", { expanded: false }, theme);
 	for (const width of [1, 4, 7]) {
@@ -334,6 +369,20 @@ test("fetch previews strip terminal escape sequences", () => {
 	const text = card.render(100).join("\n");
 	assert.doesNotMatch(text, /pwned/);
 	assert.match(text, /Body/);
+});
+
+test("error cards show a billed request", () => {
+	const card = renderSearchResult(
+		searchDetails({
+			stage: "error",
+			error: { message: "invalid response", status: 200 },
+			billing: { billed: true, cny: 0.005, usd: 0.005 / 7.2, cnyPerUsd: 7.2 },
+		}),
+		"",
+		{ expanded: false },
+		theme,
+	);
+	assert.match(card.render(100).join("\n"), /Billed ¥0\.005/);
 });
 
 test("untrusted terminal escape sequences are stripped from card content", () => {

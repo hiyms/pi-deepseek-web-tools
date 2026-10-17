@@ -111,7 +111,8 @@ usd = cny / cnyPerUsd
   "cache": {
     "enabled": true,
     "ttlMs": 600000,
-    "maxEntries": 100
+    "maxEntries": 100,
+    "maxBytes": 33554432
   },
   "search": {
     "count": 10,
@@ -133,11 +134,12 @@ usd = cny / cnyPerUsd
 | `DEEPSEEK_WEB_TOOLS_CONFIG` | 配置文件路径。 |
 | `DEEPSEEK_WEB_TOOLS_PROVIDER` | provider id，默认 `deepseek`。 |
 | `DEEPSEEK_WEB_TOOLS_BASE_URL` | API 根地址，默认 `https://api.deepseek.com`。 |
-| `DEEPSEEK_WEB_TOOLS_TIMEOUT_MS` | 单次工具调用的总超时，默认 `90000`。 |
+| `DEEPSEEK_WEB_TOOLS_TIMEOUT_MS` | 单次 HTTP 请求超时，每次重试独立计时，默认 `90000`。 |
 | `DEEPSEEK_WEB_TOOLS_QPS` | 每个接口的每秒请求上限，默认 `5`。 |
 | `DEEPSEEK_WEB_TOOLS_CNY_PER_USD` | 人民币兑美元汇率，默认 `7.2`。 |
 | `DEEPSEEK_WEB_TOOLS_CACHE_ENABLED` | 查询缓存开关，`true`/`false`。 |
 | `DEEPSEEK_WEB_TOOLS_CACHE_TTL_MS` | 查询缓存有效期，默认 `600000`。 |
+| `DEEPSEEK_WEB_TOOLS_CACHE_MAX_BYTES` | 查询缓存内存上限，默认 `33554432`。 |
 | `DEEPSEEK_WEB_TOOLS_SEARCH_MAX_BYTES` | Search 模型输出上限，默认 `49152`。 |
 
 ## 斜杠命令
@@ -147,13 +149,13 @@ usd = cny / cnyPerUsd
 /deepseek-fetch https://example.com/article
 ```
 
-不带参数时打开输入框。命令结果以同款卡片写入会话，结果文本也会进入下一次模型请求的上下文。
+不带参数时打开输入框。命令执行时显示可取消的加载框，`Esc` 取消请求。命令结果以同款卡片写入会话，`ctrl+o` 切换折叠状态，结果文本也会进入下一次模型请求的上下文。
 
 ## 缓存
 
 ### 查询缓存
 
-Search 的缓存键包含 `query`、`count`、`ori_question`、`localization`、`need_content`；Fetch 的缓存键为 URL。缓存位于当前 pi 进程内，超过 TTL 或条目上限后自动清理。缓存命中不发送 HTTP 请求，也不计费。
+Search 的缓存键包含 `query`、`count`、`ori_question`、`localization`、`need_content`；Fetch 的缓存键为 URL。缓存位于当前 pi 进程内，超过 TTL、条目上限或内存上限后自动清理。缓存命中不发送 HTTP 请求，也不计费。
 
 ### 正文文件缓存
 
@@ -163,7 +165,7 @@ Fetch 正文超过 `fetch.maxModelBytes` 时，完整正文写入：
 ~/.pi/agent/cache/deepseek-web-tools/fetch/
 ```
 
-文件名包含抓取时间、站点路径与内容哈希。模型输出与卡片会给出文件路径和总行数，可以继续使用 `read` 工具读取。
+文件名包含抓取时间、站点路径与内容哈希。模型输出与卡片会给出文件路径和总行数，可以继续使用 `read` 工具读取。该目录不会自动清理，可以手动删除。
 
 ## 开发
 

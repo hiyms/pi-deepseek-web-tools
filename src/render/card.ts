@@ -20,6 +20,7 @@ export class Card implements Component {
 	constructor(
 		private readonly spec: CardSpec,
 		private readonly theme: Theme,
+		private readonly paddingX = 0,
 	) {}
 
 	invalidate(): void {
@@ -28,16 +29,17 @@ export class Card implements Component {
 
 	render(width: number): string[] {
 		const requestedWidth = Math.max(1, Math.floor(width));
-		if (requestedWidth < 8) {
+		const padding = Math.max(0, Math.min(Math.floor(this.paddingX), Math.floor((requestedWidth - 4) / 2)));
+		const cardWidth = Math.max(1, requestedWidth - padding * 2);
+		if (cardWidth < 8) {
 			const narrow: string[] = [];
 			for (const child of this.spec.children) {
-				for (const line of child.render(requestedWidth)) {
-					narrow.push(truncateToWidth(line, requestedWidth, "", true));
+				for (const line of child.render(cardWidth)) {
+					narrow.push(truncateToWidth(line, cardWidth, "", true));
 				}
 			}
-			return narrow;
+			return narrow.map((line) => " ".repeat(padding) + line + " ".repeat(padding));
 		}
-		const cardWidth = requestedWidth;
 		const innerWidth = cardWidth - 2;
 		const backgroundToken =
 			this.spec.tone === "pending" ? "toolPendingBg" : this.spec.tone === "error" ? "toolErrorBg" : "toolSuccessBg";
@@ -57,7 +59,10 @@ export class Card implements Component {
 			}
 		}
 		lines.push(border(`╰${"─".repeat(cardWidth - 2)}╯`));
-		return lines.map(background);
+		const styled = lines.map(background);
+		if (padding === 0) return styled;
+		const left = " ".repeat(padding);
+		return styled.map((line) => left + line + left);
 	}
 
 	private renderTop(width: number, border: (text: string) => string): string {

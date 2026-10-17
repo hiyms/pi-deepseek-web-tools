@@ -18,6 +18,7 @@ export interface DeepSeekWebToolsConfig {
 		enabled: boolean;
 		ttlMs: number;
 		maxEntries: number;
+		maxBytes: number;
 	};
 	search: {
 		count: number;
@@ -49,6 +50,7 @@ export const DEFAULT_CONFIG: DeepSeekWebToolsConfig = {
 		enabled: true,
 		ttlMs: 10 * 60 * 1000,
 		maxEntries: 100,
+		maxBytes: 32 * 1024 * 1024,
 	},
 	search: {
 		count: 10,
@@ -148,6 +150,14 @@ function applySection(
 			config.cache.ttlMs = readInteger(cache.ttlMs, source, `${prefix}cache.ttlMs`, 0, 24 * 60 * 60 * 1000);
 		if ("maxEntries" in cache)
 			config.cache.maxEntries = readInteger(cache.maxEntries, source, `${prefix}cache.maxEntries`, 1, 5_000);
+		if ("maxBytes" in cache)
+			config.cache.maxBytes = readInteger(
+				cache.maxBytes,
+				source,
+				`${prefix}cache.maxBytes`,
+				1_024,
+				1024 * 1024 * 1024,
+			);
 	}
 
 	if ("search" in input) {
@@ -231,6 +241,14 @@ export function loadConfig(agentDir: string, env: NodeJS.ProcessEnv = process.en
 		config.cache.enabled = readBoolean(env.DEEPSEEK_WEB_TOOLS_CACHE_ENABLED, "environment", "DEEPSEEK_WEB_TOOLS_CACHE_ENABLED");
 	if (env.DEEPSEEK_WEB_TOOLS_CACHE_TTL_MS)
 		config.cache.ttlMs = readEnvInteger(env.DEEPSEEK_WEB_TOOLS_CACHE_TTL_MS, "environment", "DEEPSEEK_WEB_TOOLS_CACHE_TTL_MS", 0, 24 * 60 * 60 * 1000);
+	if (env.DEEPSEEK_WEB_TOOLS_CACHE_MAX_BYTES)
+		config.cache.maxBytes = readEnvInteger(
+			env.DEEPSEEK_WEB_TOOLS_CACHE_MAX_BYTES,
+			"environment",
+			"DEEPSEEK_WEB_TOOLS_CACHE_MAX_BYTES",
+			1_024,
+			1024 * 1024 * 1024,
+		);
 	if (env.DEEPSEEK_WEB_TOOLS_SEARCH_MAX_BYTES)
 		config.search.maxModelBytes = readEnvInteger(
 			env.DEEPSEEK_WEB_TOOLS_SEARCH_MAX_BYTES,
