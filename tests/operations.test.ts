@@ -41,6 +41,11 @@ test("search input rejects blank, oversized, and out-of-range values", () => {
 	);
 });
 
+test("search input counts Unicode code points for the 128 character limit", () => {
+	assert.doesNotThrow(() => validateSearchInput({ query: "😀".repeat(128) }, DEFAULT_CONFIG));
+	assert.throws(() => validateSearchInput({ query: "😀".repeat(129) }, DEFAULT_CONFIG), /128/);
+});
+
 test("fetch input accepts absolute HTTP and HTTPS URLs", () => {
 	assert.equal(validateFetchInput({ url: " https://example.com/article " }), "https://example.com/article");
 	assert.equal(validateFetchInput({ url: "http://example.com/" }), "http://example.com/");

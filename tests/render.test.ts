@@ -250,6 +250,16 @@ test("fetch call and result cards render content and cache details", () => {
 	assertFits(expanded);
 });
 
+test("cards also fit very narrow terminal widths", () => {
+	const card = renderSearchResult(searchDetails(), "", { expanded: false }, theme);
+	for (const width of [1, 4, 7]) {
+		const lines = card.render(width);
+		for (const line of lines) {
+			assert.ok(visibleWidth(line) <= width, `line exceeds narrow width ${width}: ${JSON.stringify(line)}`);
+		}
+	}
+});
+
 test("wrapped result text keeps the five-space indentation", () => {
 	const longSnippet = "这是一个很长的摘要，用来验证换行以后仍然保留结果行前面的缩进。".repeat(4);
 	const card = renderSearchResult(

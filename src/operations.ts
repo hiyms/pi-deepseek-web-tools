@@ -93,11 +93,11 @@ async function resolveClient(runtime: RuntimeState, ctx: ExtensionContext): Prom
 export function validateSearchInput(input: SearchInput, config: DeepSeekWebToolsConfig): SearchRequest {
 	const query = input.query.trim();
 	if (query.length === 0) throw new Error("query must not be blank");
-	if (query.length > 128) throw new Error("query must be at most 128 Unicode characters");
+	if (Array.from(query).length > 128) throw new Error("query must be at most 128 Unicode characters");
 	const count = input.count ?? config.search.count;
 	if (!Number.isInteger(count) || count < 1 || count > 50) throw new Error("count must be an integer between 1 and 50");
 	const oriQuestion = input.ori_question?.trim();
-	if (oriQuestion !== undefined && oriQuestion.length > 128) {
+	if (oriQuestion !== undefined && Array.from(oriQuestion).length > 128) {
 		throw new Error("ori_question must be at most 128 Unicode characters");
 	}
 	return {

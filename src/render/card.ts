@@ -27,7 +27,17 @@ export class Card implements Component {
 	}
 
 	render(width: number): string[] {
-		const cardWidth = Math.max(8, Math.floor(width));
+		const requestedWidth = Math.max(1, Math.floor(width));
+		if (requestedWidth < 8) {
+			const narrow: string[] = [];
+			for (const child of this.spec.children) {
+				for (const line of child.render(requestedWidth)) {
+					narrow.push(truncateToWidth(line, requestedWidth, "", true));
+				}
+			}
+			return narrow;
+		}
+		const cardWidth = requestedWidth;
 		const innerWidth = cardWidth - 2;
 		const backgroundToken =
 			this.spec.tone === "pending" ? "toolPendingBg" : this.spec.tone === "error" ? "toolErrorBg" : "toolSuccessBg";

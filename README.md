@@ -190,7 +190,7 @@ GitHub Actions 工作流：
 - `.github/workflows/ci.yml`：push 与 pull request 执行 typecheck 与测试。
 - `.github/workflows/publish.yml`：推送 `v*` 标签时校验版本号并发布到 npm。
 
-在仓库 Secrets 中配置 `NPM_TOKEN`。公开仓库会自动附加 provenance；私有仓库跳过 provenance。
+在仓库 Secrets 中配置 `NPM_TOKEN`。公开仓库会自动附加 provenance；私有仓库跳过 provenance。已发布的版本会被跳过，重复推送标签不会失败。
 
 本地发布：
 
@@ -200,7 +200,7 @@ pnpm release:minor
 pnpm release:major
 ```
 
-这些命令依次执行版本更新、`prepublishOnly` 检查与 `npm publish`。
+这些命令依次执行版本更新、`prepublishOnly` 检查与 `npm publish`。发布目标由 `publishConfig.registry` 固定为 `https://registry.npmjs.org/`。本地发布前运行 `npm login --registry=https://registry.npmjs.org`，或配置 `NPM_TOKEN`。
 
 ## 限制
 

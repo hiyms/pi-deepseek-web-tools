@@ -37,19 +37,14 @@
     "node": ">=22.19.0"
   },
   "packageManager": "pnpm@12.14.0",
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "@google/genai",
-      "protobufjs"
-    ]
-  },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-transform-types tests/*.test.ts",
-    "test:integration": "node --test --experimental-transform-types tests/integration/*.test.ts",
+    "test": "node --test --experimental-transform-types \"tests/*.test.ts\"",
+    "test:integration": "node --test --experimental-transform-types \"tests/integration/*.test.ts\"",
     "check": "pnpm typecheck && pnpm test",
     "prepublishOnly": "pnpm check",
     "release:patch": "pnpm version patch && pnpm publish",

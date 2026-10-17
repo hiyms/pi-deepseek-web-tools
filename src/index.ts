@@ -169,12 +169,12 @@ export default function deepseekWebTools(pi: ExtensionAPI) {
 	const runtime = createRuntime(getAgentDir());
 
 	pi.on("session_start", async (_event, ctx) => {
-		resetRuntime(runtime, ctx.sessionManager.getBranch());
+		resetRuntime(runtime, ctx.sessionManager.getEntries());
 		refreshStatus(runtime, ctx);
 	});
 
 	pi.on("session_tree", async (_event, ctx) => {
-		resetRuntime(runtime, ctx.sessionManager.getBranch());
+		resetRuntime(runtime, ctx.sessionManager.getEntries());
 		refreshStatus(runtime, ctx);
 	});
 

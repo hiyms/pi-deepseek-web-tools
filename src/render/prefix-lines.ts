@@ -20,21 +20,13 @@ export class PrefixLines implements Component {
 		const output: string[] = [];
 		for (const line of this.lines) {
 			const continuation = line.continuationPrefix ?? line.prefix;
+			const reserved = Math.max(visibleWidth(line.prefix), visibleWidth(continuation));
+			const available = Math.max(1, width - reserved);
 			for (const source of line.text.split("\n")) {
-				if (source === "") {
-					output.push(truncateToWidth(line.prefix, width, "", true));
-					continue;
-				}
-				let remaining = source;
-				let first = true;
-				while (remaining.length > 0) {
-					const usedPrefix = first ? line.prefix : continuation;
-					const available = Math.max(1, width - visibleWidth(usedPrefix));
-					const wrapped = wrapTextWithAnsi(remaining, available);
-					const chunk = wrapped[0] ?? "";
-					output.push(truncateToWidth(usedPrefix + chunk, width, "", true));
-					remaining = wrapped.slice(1).join(" ");
-					first = false;
+				const wrapped = source === "" ? [""] : wrapTextWithAnsi(source, available);
+				for (let index = 0; index < wrapped.length; index++) {
+					const usedPrefix = index === 0 ? line.prefix : continuation;
+					output.push(truncateToWidth(usedPrefix + wrapped[index]!, width, "", true));
 				}
 			}
 		}
