@@ -43,10 +43,7 @@
     "test": "node --test --experimental-transform-types \"tests/*.test.ts\"",
     "test:integration": "node --test --experimental-transform-types \"tests/integration/*.test.ts\"",
     "check": "pnpm typecheck && pnpm test",
-    "prepublishOnly": "pnpm check",
-    "release:patch": "pnpm version patch && pnpm publish",
-    "release:minor": "pnpm version minor && pnpm publish",
-    "release:major": "pnpm version major && pnpm publish"
+    "prepublishOnly": "pnpm check"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",

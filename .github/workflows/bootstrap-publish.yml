@@ -1,0 +1,50 @@
+name: Bootstrap Publish
+
+# One-time workflow for the first release only. Trusted publishing requires the
+# package to exist on npm before a trusted publisher can be configured.
+# Run this manually with an NPM_TOKEN secret, configure the trusted publisher
+# for publish.yml on npmjs.com, then delete the NPM_TOKEN secret.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check NPM_TOKEN
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "Missing NPM_TOKEN secret"
+            exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Check whether the version is already published
+        id: published
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "pi-deepseek-web-tools@$VERSION" version >/dev/null 2>&1; then
+            echo "Already published: $VERSION"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish the first version
+        if: steps.published.outputs.skip != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
