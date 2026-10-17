@@ -59,6 +59,18 @@ jobs:
             echo "Already published: $VERSION"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Determine the dist-tag
+        id: dist_tag
+        run: |
+          node -e '
+            const version = require("./package.json").version;
+            const dash = version.indexOf("-");
+            const prerelease = dash === -1 ? "" : version.slice(dash + 1);
+            const prefix = prerelease.match(/^[A-Za-z]+/);
+            const tag = prerelease === "" ? "latest" : prefix ? prefix[0] : "next";
+            console.log(`Publishing ${version} under the ${tag} dist-tag`);
+            require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`);
+          '
       - name: Publish to npm with trusted publishing
         if: steps.published.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --tag "${{ steps.dist_tag.outputs.tag }}"

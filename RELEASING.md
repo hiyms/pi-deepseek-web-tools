@@ -44,6 +44,7 @@ git push origin main --tags
 - 校验 npm 上包已存在。
 - `pnpm install --frozen-lockfile`、typecheck、测试。
 - 已发布的版本会跳过，重复推送标签不会失败。
+- 预发布版本（版本号带 `-`，如 `0.1.0-alpha.2`）发布到对应的 dist-tag（`alpha`、`beta`、`rc`；后缀不以字母开头时为 `next`），正式版本发布到 `latest`。因此预发布不会改变 `npm install pi-deepseek-web-tools` 安装到的版本。
 - `npm publish --access public` 使用 OIDC Trusted Publishing，公开仓库与公开包自动生成 provenance。
 
 私有仓库不生成 provenance，发布仍可使用 Trusted Publishing。发布目标由 `publishConfig.registry` 固定为 `https://registry.npmjs.org/`。
