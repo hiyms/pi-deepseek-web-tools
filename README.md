@@ -1,17 +1,11 @@
 # pi-deepseek-web-tools
 
-为 pi 注册两个工具：`deepseek-search` 与 `deepseek-fetch`，直接调用 DeepSeek Search/Fetch API。搜索结果与网页正文以卡片形式显示在交互式会话中，请求费用通过 tool usage 并入 pi 页脚的总费用。
+为 pi 注册 `deepseek-search` 与 `deepseek-fetch`，直接调用 DeepSeek Search/Fetch API。搜索结果与网页正文以卡片形式显示在交互式会话中，请求费用通过 tool usage 并入 pi 页脚总计费。
 
-## 功能
+## 要求
 
-- `deepseek-search`：调用 `POST /v1/tools/search`，返回标题、链接、短摘要、长摘要、站点、发布时间、rerank 分数与权威性。
-- `deepseek-fetch`：调用 `POST /v1/tools/fetch`，把单个网页转换成 Markdown。
-- 卡片展示：请求阶段、耗时、费用、结果分数、权威性、站点、日期、摘要、URL、正文预览、缓存路径、错误详情。
-- 实时进度：请求进行中每 250ms 刷新阶段与耗时。
-- 会话内查询缓存：相同查询与参数在 TTL 内复用结果，不重复计费。
-- 超大正文缓存：Fetch 正文超过模型可读上限时写入缓存文件，结果中给出路径与行数。
-- 斜杠命令：`/deepseek-search` 与 `/deepseek-fetch`。
-- 计费：Search/Fetch 的成功请求费用并入 pi 页脚总计费，页脚状态行显示 DeepSeek 调用次数与人民币金额。
+- pi 1.3.0 或更高
+- Node.js 22.19 或更高
 
 ## 安装
 
@@ -19,23 +13,17 @@
 pi install npm:pi-deepseek-web-tools
 ```
 
-本地开发时直接加载目录：
-
-```bash
-pi -e .
-```
-
 ## 鉴权
 
 默认读取 pi 中 provider id 为 `deepseek` 的 API Key。使用 `/login` 配置 DeepSeek，或设置 `DEEPSEEK_API_KEY`。
 
-`deepseek` provider 的 Key 解析由 pi 完成，包含 `auth.json` 中的凭据与 `DEEPSEEK_API_KEY` 环境变量。需要改用其他 provider id 时，在配置文件中设置 `provider`。
-
-Search 与 Fetch 使用同一个 DeepSeek API Key，请求头为 `Authorization: Bearer <key>`。
+需要改用其他 provider id 时，在配置文件中设置 `provider`。Search 与 Fetch 使用同一个 DeepSeek API Key，请求头为 `Authorization: Bearer <key>`。
 
 ## 工具
 
 ### deepseek-search
+
+调用 `POST /v1/tools/search`，返回标题、链接、短摘要、长摘要、站点、发布时间、rerank 分数与权威性。
 
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
@@ -54,6 +42,8 @@ DeepSeek "exact phrase" -site:example.com -广告
 
 ### deepseek-fetch
 
+调用 `POST /v1/tools/fetch`，把单个网页转换成 Markdown，返回页面标题与正文。
+
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
 | `url` | string，必填 | 绝对 HTTP/HTTPS URL，长度不超过 8192，不能包含用户名或密码。 |
@@ -63,7 +53,7 @@ DeepSeek "exact phrase" -site:example.com -广告
 交互式模式下，每次工具调用显示一张带边框的卡片。
 
 - 折叠状态显示前 5 条结果：rerank 分数、标题、站点、权威性、发布日期、短摘要。
-- `ctrl+o` 展开后显示全部结果的 URL、长摘要与正文大小。
+- `ctrl+o` 展开后显示结果的 URL、长摘要与正文大小；命令卡片最多显示 8 条。
 - 请求进行中显示阶段与耗时，失败时显示 HTTP 状态、错误码与是否可重试。
 - Fetch 卡片显示标题、URL、正文大小、行数、Markdown 预览；正文被截断时显示缓存文件路径。
 
@@ -87,7 +77,7 @@ usd = cny / cnyPerUsd
 ◆ 2 search 1 cached · 1 fetch · ¥0.015
 ```
 
-状态行统计包含工具调用与斜杠命令。pi 的内置页脚只累加 tool result 的 `usage`，扩展 API 没有从命令追加 usage entry 的接口，因此斜杠命令产生的费用显示在状态行，不进入内置 `$` 总计费。需要进入总计费时，让模型通过工具调用执行搜索或抓取。
+状态行统计包含工具调用与斜杠命令。斜杠命令的费用显示在状态行，不进入内置 `$` 总计费；需要进入总计费时，让模型通过工具调用执行搜索或抓取。
 
 价格与汇率都可以配置，DeepSeek 调整价格后不需要修改代码。
 
@@ -167,76 +157,35 @@ Fetch 正文超过 `fetch.maxModelBytes` 时，完整正文写入：
 
 文件名包含抓取时间、站点路径与内容哈希。模型输出与卡片会给出文件路径和总行数，可以继续使用 `read` 工具读取。该目录不会自动清理，可以手动删除。
 
-## 开发
-
-```bash
-pnpm install
-pnpm typecheck
-pnpm test
-pnpm test:integration
-```
-
-`pnpm test` 运行纯函数与卡片渲染测试。`pnpm test:integration` 使用真实 DeepSeek API 执行一次 Search 与一次 Fetch，需要 `DEEPSEEK_API_KEY` 或 `~/.pi/agent/auth.json` 中的 `deepseek` 凭据。
-
-在 pi 中加载本地目录：
-
-```bash
-pi -ne -e . -p --tools deepseek-search --model deepseek/deepseek-flash \
-  "Call deepseek-search with query 'DeepSeek V4' and count 2."
-```
-
-## 发布
-
-发布通过 GitHub Actions 完成，不使用本地发布。
-
-参考：https://docs.npmjs.com/trusted-publishers
-
-### 前置条件
-
-- GitHub 仓库地址必须与 `package.json` 的 `repository.url` 一致。`publish.yml` 会在发布前校验。以下示例使用 `hiyms/pi-deepseek-web-tools`，请替换为实际仓库并同步修改 `package.json`。
-- npm 包必须已经存在，才能配置 Trusted Publisher。首次发布使用 `bootstrap-publish.yml`。
-- 工作流使用 Node 24 与 npm 11.5.1+，满足 Trusted Publishing 的要求。
-- GitHub Actions 使用 GitHub 托管 runner。
-
-### 首次发布
-
-1. 在 GitHub 仓库 Secrets 中配置 `NPM_TOKEN`，使用具有发布权限的 granular access token。
-2. 手动运行 `Bootstrap Publish` 工作流（`.github/workflows/bootstrap-publish.yml`）。它校验版本与测试后执行 `npm publish --access public`，创建 npm 包。
-3. 打开 npmjs.com 的包设置 → Trusted Publisher → GitHub Actions，填写：
-   - Organization or user：`hiyms`
-   - Repository：`pi-deepseek-web-tools`
-   - Workflow filename：`publish.yml`
-   - Allowed actions：勾选 `npm publish`
-4. 新配置必须在 2 天内完成一次 Trusted Publishing 发布，否则会过期。首次发布后建议在包设置 → Publishing access 选择 `Require two-factor authentication and disallow tokens`，然后删除 `NPM_TOKEN` secret。
-
-也可以使用 npm CLI 配置 Trusted Publisher（需要 npm 11.15+、账号启用 2FA、包已存在）：
-
-```bash
-npm trust github pi-deepseek-web-tools --file publish.yml --repo hiyms/pi-deepseek-web-tools --allow-publish
-```
-
-### 后续发布
-
-1. 更新 `package.json` 版本。`pnpm version patch` 会自动创建提交与标签；手动修改时自行提交并创建标签。
-2. 推送提交与标签：
-
-```bash
-git push origin main --tags
-```
-
-`Publish` 工作流只在新增 `v*` 标签时触发，执行：
-
-- 校验标签与 `package.json` 版本一致。
-- 校验 `repository.url` 与 GitHub 仓库一致。
-- `pnpm install --frozen-lockfile`、typecheck、测试。
-- 已发布的版本会跳过，重复推送标签不会失败。
-- `npm publish --access public` 使用 OIDC Trusted Publishing，公开仓库与公开包自动生成 provenance。
-
-私有仓库不生成 provenance，发布仍可使用 Trusted Publishing。发布目标由 `publishConfig.registry` 固定为 `https://registry.npmjs.org/`。
-
 ## 限制
 
 - DeepSeek 对 Search 与 Fetch 分别限制每个账号 5 QPS。扩展在进程内按接口排队；多个 pi 进程同时请求时仍可能触发 HTTP 429，此时按退避策略重试。
 - 请求失败、无结果、空正文不计费。HTTP 402 表示账号余额不足，需要充值。
 - 搜索与抓取依赖目标站点与 DeepSeek 服务的可用性。
-- 斜杠命令的费用只显示在页脚状态行，原因见「计费」。
+- 斜杠命令的费用显示在页脚状态行，不进入内置 `$` 总计费。
+
+## 开发
+
+```bash
+pnpm install
+pnpm check
+pnpm test:integration
+```
+
+`pnpm check` 执行 typecheck 与单元测试。`pnpm test:integration` 使用真实 DeepSeek API 验证 Search 与 Fetch，需要 `DEEPSEEK_API_KEY` 或 `~/.pi/agent/auth.json` 中的 `deepseek` 凭据。
+
+在 pi 中加载本地目录：
+
+```bash
+pi -e .
+```
+
+发布流程见 [RELEASING.md](RELEASING.md)。
+
+## 贡献
+
+提交 issue 或 pull request。提交前运行 `pnpm check`。
+
+## License
+
+MIT，见 [LICENSE](LICENSE)。
