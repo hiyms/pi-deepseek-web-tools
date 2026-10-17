@@ -1,6 +1,6 @@
 {
   "name": "pi-deepseek-web-tools",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.2",
   "description": "DeepSeek Search and Fetch tools for pi with rich result cards and request-level billing",
   "type": "module",
   "license": "MIT",
