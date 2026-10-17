@@ -217,12 +217,10 @@ npm trust github pi-deepseek-web-tools --file publish.yml --repo hiyms/pi-deepse
 
 ### 后续发布
 
-1. 更新 `package.json` 版本，例如 `pnpm version patch` 或手动修改。
-2. 提交版本变更。
-3. 推送匹配版本的新标签：
+1. 更新 `package.json` 版本。`pnpm version patch` 会自动创建提交与标签；手动修改时自行提交并创建标签。
+2. 推送提交与标签：
 
 ```bash
-git tag v0.1.1
 git push origin main --tags
 ```
 

@@ -42,6 +42,12 @@ jobs:
               process.exit(1);
             }
           '
+      - name: Verify the package exists on npm
+        run: |
+          if ! npm view pi-deepseek-web-tools version >/dev/null 2>&1; then
+            echo "Package pi-deepseek-web-tools does not exist on npm. Run the Bootstrap Publish workflow first."
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
