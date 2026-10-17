@@ -63,7 +63,7 @@ DeepSeek "exact phrase" -site:example.com -广告
 
 DeepSeek 的价格为每 1,000 次成功请求 ¥5，即每次 ¥0.005。Search 只在结果非空时计费；Fetch 只在返回正文时计费。`count` 不影响单次价格。
 
-pi 页脚的 `$` 总计费以美元显示，扩展按配置的汇率把人民币费用写入 tool result 的 `usage.cost.total`：
+pi 页脚的 `$` 总计费以美元显示，扩展按配置的汇率把人民币费用换算为美元并计入页脚总计费：
 
 ```text
 usd = cny / cnyPerUsd
