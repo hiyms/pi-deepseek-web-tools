@@ -4,30 +4,24 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12.14.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
+      - uses: actions/checkout@v5
+      - name: Check NPM_TOKEN
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "Missing NPM_TOKEN secret"
+            exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Verify tag matches package version
-        if: github.ref_type == 'tag'
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG=${GITHUB_REF_NAME#v}
@@ -35,6 +29,17 @@ jobs:
             echo "Tag $TAG does not match package version $VERSION"
             exit 1
           fi
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
       - name: Check whether the version is already published
         id: published
         run: |
@@ -45,6 +50,6 @@ jobs:
           fi
       - name: Publish to npm
         if: steps.published.outputs.skip != 'true'
-        run: npm publish --access public ${{ github.event.repository.private == false && '--provenance' || '' }}
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

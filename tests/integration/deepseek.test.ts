@@ -9,8 +9,12 @@ import type { FetchToolDetails, SearchToolDetails } from "../../src/types.ts";
 
 function resolveKey(): string | undefined {
 	if (process.env.DEEPSEEK_API_KEY) return process.env.DEEPSEEK_API_KEY;
-	const credential = readStoredCredential("deepseek");
-	if (credential?.type === "api_key") return credential.key;
+	try {
+		const credential = readStoredCredential("deepseek");
+		if (credential?.type === "api_key") return credential.key;
+	} catch {
+		return undefined;
+	}
 	return undefined;
 }
 

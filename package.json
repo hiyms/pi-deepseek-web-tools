@@ -30,9 +30,6 @@
     "README.md",
     "LICENSE"
   ],
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "engines": {
     "node": ">=22.19.0"
   },

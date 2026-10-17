@@ -41,7 +41,7 @@ Search 与 Fetch 使用同一个 DeepSeek API Key，请求头为 `Authorization:
 | --- | --- | --- |
 | `query` | string，必填 | 搜索词，1～128 个字符。支持 `site:`、`-site:`、`lang:`、`after:`、`before:`、引号短语、排除词。 |
 | `count` | integer，可选 | 返回条数，1～50，默认取配置中的 `search.count`。 |
-| `ori_question` | string，可选 | 触发搜索的用户原始问题，1～128 个字符。 |
+| `ori_question` | string，可选 | 触发搜索的用户原始问题，提供时最多 128 个字符。 |
 | `localization` | string，可选 | 用于优先返回本地化结果的 IP 地址，通常省略。 |
 | `need_content` | boolean，可选 | 在模型输出中包含网页正文。请求费用不变，模型上下文占用会增加。 |
 
@@ -79,7 +79,7 @@ pi 页脚的 `$` 总计费以美元显示，扩展按配置的汇率把人民币
 usd = cny / cnyPerUsd
 ```
 
-默认 `cnyPerUsd` 为 `7.2`，可在配置文件中修改。一次 Search 的 `$0.000694` 会与模型 token 费用一起显示在页脚总计费中。
+默认 `cnyPerUsd` 为 `7.2`，可在配置文件中修改。一次 Search 的费用为 `$0.000694`，页脚按 3 位小数显示为 `$0.001`，并与模型 token 费用一起计入页脚总计费。
 
 页脚状态行同时显示 DeepSeek 调用统计：
 
@@ -190,7 +190,7 @@ GitHub Actions 工作流：
 - `.github/workflows/ci.yml`：push 与 pull request 执行 typecheck 与测试。
 - `.github/workflows/publish.yml`：推送 `v*` 标签时校验版本号并发布到 npm。
 
-在仓库 Secrets 中配置 `NPM_TOKEN`。公开仓库会自动附加 provenance；私有仓库跳过 provenance。已发布的版本会被跳过，重复推送标签不会失败。
+在仓库 Secrets 中配置 `NPM_TOKEN`。已发布的版本会被跳过，重复推送标签不会失败。
 
 本地发布：
 
