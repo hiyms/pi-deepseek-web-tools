@@ -288,6 +288,17 @@ export function renderSearchResult(
 			lines.push({ prefix: "", text: "" });
 			lines.push({ prefix: "", continuationPrefix: "  ", text: theme.fg("muted", "ctrl+o for summaries and URLs") });
 		}
+		if (options.commandView && details.results.length > shownResults.length) {
+			lines.push({ prefix: "", text: "" });
+			lines.push({
+				prefix: "",
+				continuationPrefix: "  ",
+				text: theme.fg(
+					"muted",
+					`… ${details.results.length - shownResults.length} more results (command view shows ${shownResults.length})`,
+				),
+			});
+		}
 	}
 
 	const meta = [
@@ -355,7 +366,7 @@ export function renderFetchResult(
 	}
 	header.push({ prefix: "", text: "" });
 
-	const preview = details.preview ?? "";
+	const preview = clean(details.preview ?? "");
 	const previewLines = preview.split("\n");
 	const limit = options.expanded ? (options.commandView ? 60 : 120) : 10;
 	const shown = previewLines.slice(0, limit);

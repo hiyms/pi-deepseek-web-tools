@@ -355,16 +355,18 @@ export async function runFetch(
 			billing,
 			note,
 		};
-		context.runtime.caches.fetch.set(cacheKey, {
-			response,
-			requestedAt,
-			...(cachePath ? { cachePath } : {}),
-			truncated: truncated.truncated,
-			bytesReturned: details.bytesReturned ?? 0,
-			contentChars,
-			contentBytes,
-			contentLines,
-		} satisfies CachedFetch);
+		if (!truncated.truncated || cachePath) {
+			context.runtime.caches.fetch.set(cacheKey, {
+				response,
+				requestedAt,
+				...(cachePath ? { cachePath } : {}),
+				truncated: truncated.truncated,
+				bytesReturned: details.bytesReturned ?? 0,
+				contentChars,
+				contentBytes,
+				contentLines,
+			} satisfies CachedFetch);
+		}
 		addBillingToLedger(context.runtime.ledger, "fetch", billing);
 		context.onLedgerChange?.();
 		const content = formatFetchForModel(details, response, config.fetch.maxModelBytes);

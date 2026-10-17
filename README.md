@@ -7,7 +7,7 @@
 - `deepseek-search`：调用 `POST /v1/tools/search`，返回标题、链接、短摘要、长摘要、站点、发布时间、rerank 分数与权威性。
 - `deepseek-fetch`：调用 `POST /v1/tools/fetch`，把单个网页转换成 Markdown。
 - 卡片展示：请求阶段、耗时、费用、结果分数、权威性、站点、日期、摘要、URL、正文预览、缓存路径、错误详情。
-- 实时进度：请求进行中每 500ms 刷新阶段与耗时。
+- 实时进度：请求进行中每 250ms 刷新阶段与耗时。
 - 会话内查询缓存：相同查询与参数在 TTL 内复用结果，不重复计费。
 - 超大正文缓存：Fetch 正文超过模型可读上限时写入缓存文件，结果中给出路径与行数。
 - 斜杠命令：`/deepseek-search` 与 `/deepseek-fetch`。
@@ -133,7 +133,7 @@ usd = cny / cnyPerUsd
 | `DEEPSEEK_WEB_TOOLS_CONFIG` | 配置文件路径。 |
 | `DEEPSEEK_WEB_TOOLS_PROVIDER` | provider id，默认 `deepseek`。 |
 | `DEEPSEEK_WEB_TOOLS_BASE_URL` | API 根地址，默认 `https://api.deepseek.com`。 |
-| `DEEPSEEK_WEB_TOOLS_TIMEOUT_MS` | 单次请求超时，默认 `90000`。 |
+| `DEEPSEEK_WEB_TOOLS_TIMEOUT_MS` | 单次工具调用的总超时，默认 `90000`。 |
 | `DEEPSEEK_WEB_TOOLS_QPS` | 每个接口的每秒请求上限，默认 `5`。 |
 | `DEEPSEEK_WEB_TOOLS_CNY_PER_USD` | 人民币兑美元汇率，默认 `7.2`。 |
 | `DEEPSEEK_WEB_TOOLS_CACHE_ENABLED` | 查询缓存开关，`true`/`false`。 |

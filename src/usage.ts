@@ -1,6 +1,7 @@
 import type { Usage } from "@earendil-works/pi-ai";
 import { toolDetailsFromUnknown } from "./config.ts";
 import {
+	COMMAND_USAGE_ENTRY_TYPE,
 	FETCH_TOOL_NAME,
 	SEARCH_TOOL_NAME,
 	type BillingDetails,
@@ -8,6 +9,8 @@ import {
 
 type EntryLike = {
 	type: string;
+	customType?: string;
+	data?: unknown;
 	message?: {
 		role?: string;
 		toolName?: string;
@@ -102,6 +105,10 @@ export function addCachedToLedger(ledger: UsageLedger, kind: "search" | "fetch")
 export function ledgerFromEntries(entries: readonly EntryLike[]): UsageLedger {
 	const ledger = createEmptyLedger();
 	for (const entry of entries) {
+		if (entry.type === "custom" && entry.customType === COMMAND_USAGE_ENTRY_TYPE) {
+			addCommandUsageEntry(ledger, entry.data);
+			continue;
+		}
 		if (entry.type !== "message") continue;
 		const message = entry.message;
 		if (!message || message.role !== "toolResult") continue;
@@ -121,6 +128,26 @@ export function ledgerFromEntries(entries: readonly EntryLike[]): UsageLedger {
 		}
 	}
 	return ledger;
+}
+
+function addCommandUsageEntry(ledger: UsageLedger, data: unknown): void {
+	if (typeof data !== "object" || data === null) return;
+	const record = data as { kind?: unknown; cached?: unknown; billing?: unknown };
+	if (record.kind !== "search" && record.kind !== "fetch") return;
+	const kind = record.kind;
+	ledger[kind].calls++;
+	if (record.cached === true) {
+		ledger[kind].cached++;
+		return;
+	}
+	const billing = record.billing;
+	if (typeof billing !== "object" || billing === null) return;
+	const details = billing as { billed?: unknown; cny?: unknown; usd?: unknown };
+	if (details.billed !== true) return;
+	if (typeof details.cny !== "number" || typeof details.usd !== "number") return;
+	ledger[kind].billed++;
+	ledger.cny += details.cny;
+	ledger.usd += details.usd;
 }
 
 export function formatCny(cny: number): string {

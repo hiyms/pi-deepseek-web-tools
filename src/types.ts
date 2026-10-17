@@ -1,6 +1,7 @@
 export const SEARCH_TOOL_NAME = "deepseek-search";
 export const FETCH_TOOL_NAME = "deepseek-fetch";
 export const CUSTOM_MESSAGE_TYPE = "deepseek-web-tools";
+export const COMMAND_USAGE_ENTRY_TYPE = "deepseek-web-tools-command-usage";
 export const CACHE_DIR_NAME = "deepseek-web-tools";
 
 export const SEARCH_PRICE_CNY = 0.005;

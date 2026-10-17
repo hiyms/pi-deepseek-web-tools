@@ -12,7 +12,7 @@ import {
 	ledgerFromEntries,
 	searchBilling,
 } from "../src/usage.ts";
-import { FETCH_TOOL_NAME, SEARCH_TOOL_NAME, type BillingDetails } from "../src/types.ts";
+import { COMMAND_USAGE_ENTRY_TYPE, FETCH_TOOL_NAME, SEARCH_TOOL_NAME, type BillingDetails } from "../src/types.ts";
 
 const RATE = 7.2;
 
@@ -126,6 +126,29 @@ test("ledger reconstruction counts tool results from the session", () => {
 	assert.deepEqual(ledger.fetch, { calls: 1, billed: 1, cached: 0 });
 	assert.equal(ledger.cny, 0.01);
 	assert.equal(ledger.usd, 0.01 / RATE);
+});
+
+test("custom command usage entries are counted", () => {
+	const ledger = ledgerFromEntries([
+		{
+			type: "custom",
+			customType: COMMAND_USAGE_ENTRY_TYPE,
+			data: { kind: "search", cached: false, billing: billedSearch() },
+		},
+		{
+			type: "custom",
+			customType: COMMAND_USAGE_ENTRY_TYPE,
+			data: { kind: "fetch", cached: true },
+		},
+		{
+			type: "custom",
+			customType: "other-extension",
+			data: { kind: "search", cached: false, billing: billedSearch() },
+		},
+	]);
+	assert.deepEqual(ledger.search, { calls: 1, billed: 1, cached: 0 });
+	assert.deepEqual(ledger.fetch, { calls: 1, billed: 0, cached: 1 });
+	assert.equal(ledger.cny, 0.005);
 });
 
 test("ledger ignores unrelated tools and malformed details", () => {

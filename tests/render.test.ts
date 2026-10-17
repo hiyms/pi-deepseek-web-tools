@@ -309,6 +309,33 @@ test("fetch card shortens the cache path under the home directory", () => {
 	assert.match(card.render(120).join("\n"), /~\/\.pi\/agent\/cache\/deepseek-web-tools\/fetch\/page\.md/);
 });
 
+test("fetch previews strip terminal escape sequences", () => {
+	const card = renderFetchResult(
+		{
+			kind: "fetch",
+			stage: "done",
+			url: "https://example.com/article",
+			startedAt: Date.now() - 100,
+			durationMs: 100,
+			title: "Example article",
+			contentChars: 100,
+			contentBytes: 100,
+			contentLines: 2,
+			preview: "\u001b]0;pwned\u0007# Example article\n\nBody",
+			truncated: false,
+			bytesReturned: 100,
+			cached: false,
+			billing: { billed: true, cny: 0.005, usd: 0.005 / 7.2, cnyPerUsd: 7.2 },
+		},
+		"",
+		{ expanded: true },
+		theme,
+	);
+	const text = card.render(100).join("\n");
+	assert.doesNotMatch(text, /pwned/);
+	assert.match(text, /Body/);
+});
+
 test("untrusted terminal escape sequences are stripped from card content", () => {
 	const card = renderSearchResult(
 		searchDetails({

@@ -11,7 +11,7 @@ import { runFetch, runSearch, type OperationContext, type OperationResult } from
 import { renderFetchCall, renderFetchResult, renderSearchCall, renderSearchResult, renderToolCard } from "./render/tool-cards.ts";
 import { createRuntime, resetRuntime, type RuntimeState } from "./runtime.ts";
 import type { CommandCardMessageDetails, FetchToolDetails, SearchToolDetails, ToolDetails } from "./types.ts";
-import { CUSTOM_MESSAGE_TYPE, FETCH_TOOL_NAME, SEARCH_TOOL_NAME } from "./types.ts";
+import { CUSTOM_MESSAGE_TYPE, COMMAND_USAGE_ENTRY_TYPE, FETCH_TOOL_NAME, SEARCH_TOOL_NAME } from "./types.ts";
 import { formatLedgerSummary } from "./usage.ts";
 
 const STATUS_KEY = "deepseek-web-tools";
@@ -71,13 +71,13 @@ Query syntax: site:example.com, -site:example.com, -word, -"exact phrase", "exac
 
 Use summary by default. Set need_content=true only when the long summary is insufficient; page bodies make the model-facing output much larger but do not change the request price.
 
-Billing: DeepSeek charges ¥0.005 per successful request that returns results. The extension reports this as tool usage, so it is added to pi's session cost total. Identical query+parameters within the cache TTL are served from the session cache with no new charge.`;
+Billing: DeepSeek charges a per-request fee (default ¥0.005) for successful requests that return results. The extension reports this as tool usage, so it is added to pi's session cost total. Identical query+parameters within the cache TTL are served from the session cache with no new charge.`;
 
 const FETCH_DESCRIPTION = `Fetch one web page through DeepSeek Fetch (POST /v1/tools/fetch) and return its title plus Markdown body.
 
 Use it for a specific URL, preferably one returned by deepseek-search. Fetch results depend on the target site's availability and access policy.
 
-Billing: DeepSeek charges ¥0.005 per successful fetch that returns page content. The extension reports this as tool usage, so it is added to pi's session cost total. Large pages are truncated in the model-facing output and written to the cache directory; read the cached file with offset/limit when instructed.`;
+Billing: DeepSeek charges a per-request fee (default ¥0.005) for successful fetches that return page content. The extension reports this as tool usage, so it is added to pi's session cost total. Large pages are truncated in the model-facing output and written to the cache directory; read the cached file with offset/limit when instructed.`;
 
 function textOf(content: Array<{ type: string; text?: string }>): string {
 	for (const item of content) {
@@ -123,6 +123,17 @@ function operationContext<TDetails extends ToolDetails>(
 	};
 }
 
+function appendCommandUsage(pi: ExtensionAPI, details: ToolDetails): void {
+	if (details.stage === "error" || details.error) return;
+	if (details.cached) {
+		pi.appendEntry(COMMAND_USAGE_ENTRY_TYPE, { kind: details.kind, cached: true });
+		return;
+	}
+	if (details.billing) {
+		pi.appendEntry(COMMAND_USAGE_ENTRY_TYPE, { kind: details.kind, cached: false, billing: details.billing });
+	}
+}
+
 async function runCommandSearch(
 	pi: ExtensionAPI,
 	runtime: RuntimeState,
@@ -130,6 +141,7 @@ async function runCommandSearch(
 	query: string,
 ): Promise<void> {
 	const result = await runSearch({ query }, operationContext<SearchToolDetails>(runtime, ctx));
+	appendCommandUsage(pi, result.details);
 	pi.sendMessage<CommandCardMessageDetails>(
 		{
 			customType: CUSTOM_MESSAGE_TYPE,
@@ -151,6 +163,7 @@ async function runCommandFetch(
 	url: string,
 ): Promise<void> {
 	const result = await runFetch({ url }, operationContext<FetchToolDetails>(runtime, ctx));
+	appendCommandUsage(pi, result.details);
 	pi.sendMessage<CommandCardMessageDetails>(
 		{
 			customType: CUSTOM_MESSAGE_TYPE,
@@ -290,6 +303,6 @@ export default function deepseekWebTools(pi: ExtensionAPI) {
 	pi.registerMessageRenderer<CommandCardMessageDetails>(CUSTOM_MESSAGE_TYPE, (message, _options, theme) => {
 		const details = message.details?.card;
 		if (!details) return undefined;
-		return renderToolCard(details as ToolDetails, { expanded: true, commandView: true }, theme);
+		return renderToolCard(details, { expanded: true, commandView: true }, theme);
 	});
 }
