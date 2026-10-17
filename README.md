@@ -180,7 +180,7 @@ pnpm test:integration
 pi -e .
 ```
 
-发布流程见 [RELEASING.md](RELEASING.md)。
+发布流程见仓库根目录的 `RELEASING.md`。
 
 ## 贡献
 
